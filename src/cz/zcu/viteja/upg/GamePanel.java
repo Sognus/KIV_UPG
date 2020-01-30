@@ -28,6 +28,8 @@ public class GamePanel extends JPanel {
 	public NamedPosition target;
 	/** Rerefence na instanci reprezentující oblast zásahu */
 	public NamedPosition hitSpot;
+	/** Reference na trajektorii */
+	public Trajectory trajectory;
 
 	/**
 	 * Základní konstruktor tøídy GamePanel. Objekty, které jsou pøedány jako
@@ -58,6 +60,7 @@ public class GamePanel extends JPanel {
 
 		Graphics2D g2 = (Graphics2D) g;
 		RenderingHints hints = new RenderingHints(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 		g2.setRenderingHints(hints);
 
 		g2.translate(10, 10);
@@ -70,12 +73,6 @@ public class GamePanel extends JPanel {
 			g2.setClip(new Rectangle2D.Double(0, 0, terrain.getWidthInM() * scale, terrain.getHeightInM() * scale));
 		}
 
-		if (hitSpot != null) {
-
-			hitSpot.draw(g2, scale);
-
-		}
-
 		if (shooter != null) {
 
 			shooter.draw(g2, scale);
@@ -85,6 +82,16 @@ public class GamePanel extends JPanel {
 		if (target != null) {
 
 			target.draw(g2, scale);
+
+		}
+
+		if (trajectory != null) {
+			trajectory.draw(g2, scale);
+		}
+
+		if (hitSpot != null) {
+
+			hitSpot.draw(g2, scale);
 
 		}
 

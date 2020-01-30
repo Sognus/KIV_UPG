@@ -2,6 +2,11 @@ package cz.zcu.viteja.upg;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+
+import javax.imageio.ImageIO;
 
 /**
  * Tøída reprezentující herní terén. Tato tøída nám poskytuje pøístup k
@@ -9,7 +14,7 @@ import java.awt.Graphics2D;
  * souøadnicích terénu a další..
  * 
  * @author Jakub Vítek - A16B0165P
- * @version 1.01.00
+ * @version 1.02.00
  *
  */
 public class Terrain {
@@ -26,7 +31,9 @@ public class Terrain {
 	/** Poèet øádkù v terénu */
 	private int rowCount;
 
-	@SuppressWarnings("unused")
+	/** Bitmapa vytvoøená dle nadmoøské výšky */
+	private BufferedImage terrainImage;
+
 	/**
 	 * Pomocná reference na instanci, která zajištuje náèítání terénu ze souboru
 	 */
@@ -47,6 +54,10 @@ public class Terrain {
 		this.terrain = terrain;
 		this.deltaXInMM = deltaXInMM;
 		this.deltaYInMM = deltaYInMM;
+		this.rowCount = this.terrain.length;
+		this.columnCount = this.terrain[0].length;
+
+		this.makeImage();
 	}
 
 	/**
@@ -69,6 +80,8 @@ public class Terrain {
 		this(terrain, deltaXInMM, deltaYInMM);
 		this.columnCount = columnCount;
 		this.rowCount = rowCount;
+
+		this.makeImage();
 
 	}
 
@@ -106,8 +119,13 @@ public class Terrain {
 
 		g2.setColor(Color.WHITE);
 		g2.fillRect(0, 0, (int) (getWidthInM() * scale), (int) (getHeightInM() * scale));
-		g2.setColor(Color.black);
-		g2.drawRect(0, 0, (int) (getWidthInM() * scale), (int) (getHeightInM() * scale));
+
+		g2.drawImage(this.terrainImage, 0, 0, (int) (getWidthInM() * scale), (int) (getHeightInM() * scale), null);
+		// g2.drawImage(this.terrainImage, 0, 0, null);
+
+		// g2.setColor(Color.black);
+		// g2.drawRect(0, 0, (int) (getWidthInM() * scale), (int)
+		// (getHeightInM() * scale));
 
 	}
 
@@ -129,5 +147,98 @@ public class Terrain {
 	public double getHeightInM() {
 		return (rowCount * deltaYInMM / 1000.0);
 
+	}
+
+	/**
+	 * Vrátí aktuální šíøku herního terénu v pixelech
+	 * 
+	 * @return šíøka terénu v pixelech
+	 */
+	public double getWidthInPixels() {
+		return this.getWidthInM() * Game.gamePanel.getScale();
+	}
+
+	/**
+	 * Vrátí aktuální šíøku herního terénu v pixelech
+	 * 
+	 * @return šíøka terénu v pixelech
+	 */
+	public double getHeightInPixels() {
+		return this.getHeightInM() * Game.gamePanel.getScale();
+	}
+
+	/**
+	 * Na základì aktuálního naèteného terénu vytvoøí bitmapu, reprezentující
+	 * terén. Pokud bitmapa již existuje, bude vrácena existující bitmapa.
+	 * 
+	 * @return bitmapa terénu
+	 */
+	public BufferedImage makeImage() {
+		if (this.terrainImage != null) {
+			return this.terrainImage;
+		}
+
+		this.terrainImage = new BufferedImage(columnCount, rowCount, BufferedImage.TYPE_INT_RGB);
+		Graphics2D imgGraphics = (Graphics2D) terrainImage.createGraphics();
+
+		int min = Integer.MAX_VALUE;
+		int max = Integer.MIN_VALUE;
+
+		for (int y = 0; y < rowCount; y++) {
+			for (int x = 0; x < columnCount; x++) {
+				int val = this.terrain[y][x];
+
+				if (val > max) {
+					max = val;
+				}
+
+				if (val < min) {
+					min = val;
+				}
+			}
+		}
+
+		// min = 999;
+
+		// Terén je rovný
+		if (max == min) {
+			imgGraphics.setColor(Color.gray);
+			imgGraphics.fillRect(0, 0, columnCount, rowCount);
+		} else {
+			for (int y = 0; y < rowCount; y++) {
+				for (int x = 0; x < columnCount; x++) {
+					int val = this.terrain[y][x];
+					double step = (max - min) / 256;
+					int rgb = (int) (val / step);
+
+					// Korekce
+					rgb = rgb > 255 ? 255 : rgb;
+					rgb = rgb < 0 ? 0 : rgb;
+
+					Color color = new Color(rgb, rgb, rgb, 1);
+					terrainImage.setRGB(x, y, color.getRGB());
+
+				}
+			}
+		}
+
+		File outputfile = new File("image.jpg");
+		try {
+			ImageIO.write(terrainImage, "jpg", outputfile);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		return terrainImage;
+
+	}
+
+	public boolean isPointInVisibleTerrain(double x, double y) {
+		if(x >= 0 && x <= getWidthInM() && y >= 0 && y <= getHeightInM()) {
+			return true;
+		
+		}
+		return false;
 	}
 }

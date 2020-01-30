@@ -4,13 +4,17 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
+import java.awt.image.BufferedImage;
+import java.io.File;
+
+import javax.imageio.ImageIO;
 
 /**
  * Tøída, jejíž instance reprezentují pozici a další dùležité vlastnosti všech
  * klíèových pozicovatelných objektù (støelec, cíl, oblast zásahu).
  * 
  * @author Jakub Vítek A16B0165P
- * @version 1.01.00
+ * @version 1.02.00
  *
  */
 public class NamedPosition {
@@ -26,6 +30,9 @@ public class NamedPosition {
 	public double x;
 	/** Souøadnice objektu na ose Y (v metrech) */
 	public double y;
+
+	/** Naètený obrázek pro vykreslování */
+	private BufferedImage image;
 
 	/**
 	 * Øetìzec reprezentující typ objektu (zda se jedná o cíl, støelce nebo
@@ -62,6 +69,8 @@ public class NamedPosition {
 		this.positionType = positionType;
 		this.color = color;
 		this.size = size;
+
+		this.loadImage();
 	}
 
 	/**
@@ -93,7 +102,7 @@ public class NamedPosition {
 		switch (this.positionType) {
 		case Constants.SHOOTER:
 		case Constants.TARGET:
-			this.drawTargetShooter(g2, scale);
+			this.drawShooterTarget(g2, scale);
 			break;
 		case Constants.HITSPOT:
 			this.drawHitspot(g2, scale);
@@ -126,11 +135,15 @@ public class NamedPosition {
 	 * stejnì, mìní se jen barva, která je uložena jako promìnná souèasné
 	 * instance.
 	 * 
+	 * @deprecated Metoda již dále v aplikaci není využita, její deklarace však
+	 *             zùstává z dùvodu možné potøeby kompatibility
+	 * 
 	 * @param g2
 	 *            grafický kontext
 	 * @param scale
 	 *            promìnná díky které lze pøevést metry na pixely
 	 */
+	@Deprecated
 	private void drawTargetShooter(Graphics2D g2, double scale) {
 
 		double positionX = this.x * scale;
@@ -148,6 +161,72 @@ public class NamedPosition {
 		 * g2.drawLine(xs, ys, xs + 5, ys); g2.drawLine(xs, ys, xs, ys + 5);
 		 * g2.drawLine(xs, ys, xs - 5, ys); g2.drawLine(xs, ys, xs, ys - 5);
 		 */
+	}
+
+	/**
+	 * Metoda, která vykresluje pozici støelce a cíle (vykreslení probíhá
+	 * stejnì, mìní se jen barva, která je uložena jako promìnná souèasné
+	 * instance.
+	 * 
+	 * @param g2
+	 *            grafický kontext
+	 * @param scale
+	 *            promìnná díky které lze pøevést metry na pixely
+	 */
+	private void drawShooterTarget(Graphics2D g2, double scale) {
+		double positionX = this.x * scale;
+		double positionY = this.y * scale;
+		double offset = this.size / 2;
+
+		// Vykreslení obrázku
+
+		if (this.image != null) {
+			g2.drawImage(image, (int) (positionX - (this.size / 2)), (int) (positionY - (this.size / 2)),
+					(int) (this.size), (int) (this.size), null);
+		}
+
+		// Vykreslení debug køížku
+
+		if (Constants.DEBUG == true) {
+			g2.setColor(this.color);
+			g2.draw(new Line2D.Double(positionX - offset, positionY, positionX + offset, positionY));
+			g2.draw(new Line2D.Double(positionX, positionY - offset, positionX, positionY + offset));
+		}
+
+	}
+
+	/**
+	 * Naète obrázek (piktogram) ze souboru na základì typu pozice
+	 */
+	private void loadImage() {
+		if (this.positionType.equals(Constants.HITSPOT)) {
+			return;
+		}
+
+		String filePath = "";
+
+		switch (this.positionType) {
+		case Constants.SHOOTER:
+			filePath = Constants.shooterImagePath;
+			break;
+		case Constants.TARGET:
+			filePath = Constants.targetImagePath;
+			break;
+		default:
+			filePath = "";
+			break;
+		}
+
+		if (filePath.equals("")) {
+			return;
+		}
+
+		try {
+			File f = new File(filePath);
+			this.image = ImageIO.read(f);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 }

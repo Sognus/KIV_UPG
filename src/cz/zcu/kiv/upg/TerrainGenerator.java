@@ -41,12 +41,25 @@ public class TerrainGenerator {
 	 */
 	public static int[][] terrain = null;
 
-	static int deltaX, deltaY;
-	static int shooterX, shooterY;
-	static int targetX, targetY;
+	/** delta x */
+	static int deltaX;
+	/** delta y */
+	static int deltaY;
+
+	/** x-ová pozice støelce */
+	static int shooterX;
+	/** y-ová pozice støelce */
+	static int shooterY;
+
+	/** x-ová pozice cíle */
+	static int targetX;
+	/** y-ová pozice cíle */
+	static int targetY;
+
+	/** jméno souboru */
 	static String fName;
 
-	/* pro pøevod mm na m */
+	/** pro pøevod mm na m */
 	static final double mmToM = 1000.0;
 
 	/**

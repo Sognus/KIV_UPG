@@ -1,12 +1,16 @@
 package cz.zcu.viteja.upg;
 
-import java.awt.BorderLayout;
+import java.awt.GridLayout;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Observer;
 
 import javax.swing.JFrame;
+
+import cz.zcu.viteja.upg.graph.DependencyGraph;
+import cz.zcu.viteja.upg.graph.TerrainProfileGraph;
 
 /**
  * Hlavní vstupní tøída aplikace, která zajištuje základní úkony, kterými jsou
@@ -48,8 +52,17 @@ public class Game {
 
 	/** Reference na instanci okna aplikace */
 	public static JFrame frame;
-	/** Reference na instanci herního panelu, který je vykreslován v oknì */
+	public static JFrame dependencyGraphFrame;
+	/**
+	 * Reference na instanci herního panelu, který je vykreslován v oknì - terén
+	 */
 	public static GamePanel gamePanel;
+	/** Reference na instanci panelu pro vykreslení smìru a intenzity vìtru */
+	public static CompassPanel compassPanel;
+	/** Reference na instanci vìtru */
+	public static Wind wind;
+	/** Reference na trajektorii */
+	public static Trajectory trajectory;
 
 	/**
 	 * Reference na vstupní parametry, která je použita, aby bylo možné k
@@ -57,6 +70,9 @@ public class Game {
 	 * pøedávat hodnoty jako argument metod
 	 */
 	private static String[] startArgs;
+	
+	public  static boolean graphMainLoopRunning;
+	public static JFrame terrainProfileGraphFrame;
 
 	/**
 	 * Hlavní metoda aplikace
@@ -71,7 +87,7 @@ public class Game {
 		startArgs = args;
 
 		// Kontrola jestli je soubor zadán jako parametr z konzole
-		String fileName = (args.length < 3) ? "rovny1metr_1km_x_1km.ter" : args[2];
+		String fileName = (args.length < 4) ? "rovny1metr_1km_x_1km.ter" : args[3];
 
 		// Zjistí souèasné umístìní pracovního adresáøe
 		File relative = new File(Game.class.getProtectionDomain().getCodeSource().getLocation().getPath());
@@ -112,9 +128,107 @@ public class Game {
 
 		// Vytvoøení okna
 		makeWindow();
+		
+		// Rozhodnutí mezi vykreslením grafù a hlavním cyklem
+		graphsOrGame();
 
 		// Hlavní herní cyklus
-		gameMainLoop();
+		//gameMainLoop();
+	}
+
+	private static void graphsOrGame() {
+		
+		// Nekoneèný cyklus
+		boolean running = true;
+		
+		System.out.println("-----Vítejte na støelnici-----");
+		
+		while(running)
+		{
+			System.out.println("MENU:");
+			System.out.println("[0] Hrát");
+			System.out.println("[1] Zobrazit graf závislosti vstupních parametrù na výslednou vzdálenost støely");
+			System.out.println("[2] Zobrazit graf profilu terénu");
+			System.out.println("[3] Ukonèit aplikaci");
+			
+			System.out.println();
+			System.out.print("Jaká je vaše volba: ");
+			
+			try {
+				BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+				String odpoved = br.readLine();
+				
+				switch (odpoved) {
+				case "0":
+					if(dependencyGraphFrame != null)
+					{
+						dependencyGraphFrame.dispose();
+					}
+					
+					if(terrainProfileGraphFrame != null)
+					{
+						terrainProfileGraphFrame.dispose();
+					}
+					
+					System.out.println();
+					frame.setVisible(true);
+					gameMainLoop();
+					break;
+				case "1":
+					// TODO: vytvoøit vykreslování grafù
+					if(dependencyGraphFrame != null)
+					{
+						dependencyGraphFrame.dispose();
+					}
+					
+					if(terrainProfileGraphFrame != null)
+					{
+						terrainProfileGraphFrame.dispose();
+					}
+					
+					
+					frame.setVisible(false);
+					DependencyGraph dg = new DependencyGraph();
+					dependencyGraphFrame = dg.makeWindow();
+					dependencyGraphFrame.setVisible(true);
+					
+					break;
+				case "2":
+					if(dependencyGraphFrame != null)
+					{
+						dependencyGraphFrame.dispose();
+					}
+					
+					if(terrainProfileGraphFrame != null)
+					{
+						terrainProfileGraphFrame.dispose();
+					}
+					
+					frame.setVisible(false);
+					TerrainProfileGraph tpg = new TerrainProfileGraph();
+					terrainProfileGraphFrame = tpg.makeWindow();
+					terrainProfileGraphFrame.setVisible(true);
+					break;
+				case "3":
+					System.out.println("*****UKONÈUJI APLIKACI*****");
+					running = false;
+					break;
+				default:
+					System.out.println("-----Neplatná volba, budete navrácen/a do menu-----");
+					System.out.println();
+					System.out.println();
+					break;
+				}
+				
+			} catch (Exception e) {
+				System.out.println("Pøi ètení vstupu z console nastala chyba!");
+				e.printStackTrace();
+			}
+			
+			System.out.println();
+			
+		}
+		
 	}
 
 	/**
@@ -124,15 +238,17 @@ public class Game {
 	public static void initData() {
 		shooter = new NamedPosition(terrainFile.shooterX * terrainFile.deltaX / Constants.mmToM,
 				terrainFile.shooterY * terrainFile.deltaY / Constants.mmToM, Constants.SHOOTER, Constants.shooterColor,
-				10.0);
+				20.0);
 		target = new NamedPosition(terrainFile.targetX * terrainFile.deltaX / Constants.mmToM,
 				terrainFile.targetY * terrainFile.deltaY / Constants.mmToM, Constants.TARGET, Constants.targetColor,
-				10.0);
+				20.0);
 
 		terrain = new Terrain(terrainFile.terrain, terrainFile.deltaX, terrainFile.deltaY, terrainFile.rows,
 				terrainFile.columns);
 
 		shootingCalculator = new ShootingCalculator(shooter, target);
+
+		wind = new Wind(100);
 	}
 
 	/**
@@ -149,20 +265,27 @@ public class Game {
 			try {
 				BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 				double azimuth;
-				double distance;
-				if (startArgs.length >= 2 && !startArgs.equals(null)) {
+				double elevace;
+				double rychlost;
+				if (startArgs.length >= 3 && !startArgs.equals(null)) {
 					azimuth = Double.valueOf(startArgs[0]);
-					distance = Double.valueOf(startArgs[1]);
+					elevace = Double.valueOf(startArgs[1]);
+					rychlost = Double.valueOf(startArgs[2]);
 				} else {
 
 					System.out.print("Zadejte azimut: ");
 					azimuth = Double.valueOf(br.readLine());
 
-					System.out.print("Zadejte vzdálenost støelby: ");
-					distance = Double.valueOf(br.readLine());
+					System.out.print("Zadejte elevaci støelby: ");
+					elevace = Double.valueOf(br.readLine());
+
+					System.out.print("Zadejte rychlost støely: ");
+					rychlost = Double.valueOf(br.readLine());
+
 				}
 
-				shootingCalculator.shoot(azimuth, distance);
+				// shootingCalculator.shoot(azimuth, distance);
+				shootingCalculator.shoot(azimuth, elevace, rychlost);
 
 				gamePanel.setHitSpot(shootingCalculator.getHitSpot());
 
@@ -183,17 +306,20 @@ public class Game {
 				// Zeptat se znova na hraní
 
 				System.out.println();
-				System.out.print("Hrát znovu? <ano/ne>: ");
+				System.out.print("Návrat do herního menu? <ano/ne>: ");
 				String hrat = br.readLine();
 
-				if (!hrat.toLowerCase().equals("a") && !hrat.toLowerCase().equals("ano")
-						&& !hrat.toLowerCase().equals("true")) {
-					System.out.println("-----Hra byla ukonèena-----");
+				if (hrat.toLowerCase().equals("a") || hrat.toLowerCase().equals("ano")
+						|| hrat.toLowerCase().equals("true")) {
+					System.out.println("-----Návrat do hlavního menu-----");
 
 					frame.setVisible(false);
 					frame.dispose();
 					break;
 				}
+
+				// wind.generateParams();
+				wind.generateParamsAnimated();
 
 				System.out.println("----------");
 
@@ -226,20 +352,25 @@ public class Game {
 	 */
 	public static void makeWindow() {
 		frame = new JFrame();
+
+		// Nastavení panelù
 		gamePanel = new GamePanel(terrain, shooter, target);
-
-		// frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-
-		frame.setLayout(new BorderLayout());
+		gamePanel.trajectory = trajectory;
 		gamePanel.setSize(Constants.preferedWindowWidth + 20, Constants.preferedWindowHeight + 20);
-		frame.add(gamePanel, BorderLayout.CENTER);
 
-		frame.setTitle("Prototyp 1 | J. Vítek | A16B0165P");
+		compassPanel = new CompassPanel(wind);
+		wind.addObserver((Observer) compassPanel);
+
+		// Nastavení layoutù
+		frame.setLayout(new GridLayout());
+		frame.add(gamePanel);
+		frame.add(compassPanel);
+
+		// Zobrazení a interakce
+		frame.setTitle("Støelec - Herní okno | J. Vítek | A16B0165P");
 		frame.pack();
-
+		frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		frame.setLocationRelativeTo(null);
-		frame.setVisible(true);
 		frame.setSize(Constants.preferedWindowWidth, Constants.preferedWindowHeight);
 	}
 }
